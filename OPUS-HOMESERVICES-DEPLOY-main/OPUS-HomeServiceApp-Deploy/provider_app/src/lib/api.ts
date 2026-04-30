@@ -484,7 +484,7 @@ export const companyVerificationAPI = {
           documents:providers_verification_documents(*)
         `)
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
       return { data, error }
     } catch (error) {
       return { data: null, error: error as AuthError }
@@ -667,7 +667,7 @@ export const doctorDetailsAPI = {
         .from('providers_doctor_details')
         .select('*')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
       return { data, error }
     } catch (error) {
       return { data: null, error: error as AuthError }
@@ -788,7 +788,7 @@ export const actingDriversAPI = {
         .from('providers_acting_drivers')
         .select('*')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
       return { data, error }
     } catch (error) {
       return { data: null, error: error as AuthError }

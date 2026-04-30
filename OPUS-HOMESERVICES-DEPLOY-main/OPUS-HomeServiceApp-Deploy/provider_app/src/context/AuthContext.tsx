@@ -52,39 +52,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        // Auth state changed
-        
-        // Only validate session if we have a valid session and user
-        if (session?.user && event !== 'SIGNED_OUT') {
-          try {
-            // Verify the session is still valid
-            const { data: userData, error: userError } = await supabase.auth.getUser()
-            
-            if (userError || !userData.user) {
-              console.log('Session validation failed in auth state change:', userError?.message)
-              // Clear invalid session
-              setSession(null)
-              setUser(null)
-              setLoading(false)
-              return
-            }
-            
-            // Note: We don't require profile to exist for session validation
-            // Profile will be created after email verification (on SIGNED_IN event)
-            // This allows users to sign up even if profile creation fails
-            
-            // Session validated successfully
-          } catch (validationError) {
-            console.log('Session validation error in auth state change:', validationError)
-            // Clear invalid session
-            setSession(null)
-            setUser(null)
-            setLoading(false)
-            return
-          }
-        }
-        
+      (event, session) => {
+        // Auth state changed - update UI state immediately
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)

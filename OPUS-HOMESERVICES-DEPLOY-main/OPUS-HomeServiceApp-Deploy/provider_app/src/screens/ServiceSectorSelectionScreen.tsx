@@ -256,77 +256,79 @@ const ServiceSectorSelectionScreen: React.FC = () => {
     <View style={[styles.gradientBg, { backgroundColor: '#f5f5f5' }]}>
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Logo + Title */}
-          <View style={styles.logoWrap}>
-            <Image
-              source={require('../../assets/logo.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+          {/* Header Section */}
+          <View style={styles.headerContainer}>
+            <Text style={[styles.instruction, { color: '#000000' }]}>Service Categories</Text>
+            <Text style={styles.subtitle}>Choose your service area to get started</Text>
           </View>
-
-          {/* Instruction */}
-          <Text style={[styles.instruction, { color: '#000000' }]}>Service Categories</Text>
 
           {/* Service Sectors */}
           <View style={styles.sectorsContainer}>
-            {serviceSectors.map((sector) => (
-              <View key={sector.id}>
-                <TouchableOpacity
-                  style={[
-                    styles.sectorCard,
-                    { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
-                    selectedCardId === sector.id && { borderColor: '#3B5BFD', borderWidth: 2 },
-                    expandedSector === sector.id && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
-                  ]}
-                  onPress={() => handleSectorSelect(sector)}
-                  activeOpacity={0.8}
-                >
-                  {/* Selected overlay */}
-                  {selectedCardId === sector.id && (
-                    <View pointerEvents="none" style={styles.selectedOverlay} />
-                  )}
-                  <View style={styles.sectorHeader}>
-                    <View style={[styles.iconContainer, { backgroundColor: sector.bgColor }]}>
-                      <Ionicons
-                        name={sector.icon}
-                        size={moderateScale(24)}
-                        color={sector.iconColor}
-                      />
-                    </View>
-                    <View style={styles.sectorInfo}>
-                      <Text style={[styles.sectorTitle, { color: colors.text }]}>{sector.title}</Text>
-                      <Text style={[styles.sectorDescription, { color: colors.textSecondary }]}>{sector.description}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => toggleExpand(sector.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                      <Ionicons
-                        name={expandedSector === sector.id ? "chevron-up" : "chevron-down"}
-                        size={moderateScale(24)}
-                        color={colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Dropdown Services */}
-                {expandedSector === sector.id && (
-                  <View style={[
-                    styles.servicesDropdown,
-                    { backgroundColor: colors.card }
-                  ]}>
-                    {sector.services.map((service, index) => (
-                      <View key={index} style={styles.serviceItem}>
-                        <Text style={styles.bulletPoint}>•</Text>
-                        <Text style={styles.serviceText}>{service}</Text>
+            {serviceSectors.map((sector) => {
+              const isSelected = selectedCardId === sector.id;
+              return (
+                <View key={sector.id}>
+                  <TouchableOpacity
+                    style={[
+                      styles.sectorCard,
+                      { backgroundColor: colors.card },
+                      isSelected && styles.selectedSectorCard,
+                      expandedSector === sector.id && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
+                    ]}
+                    onPress={() => handleSectorSelect(sector)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.sectorHeader}>
+                      <View style={[
+                        styles.iconContainer, 
+                        { backgroundColor: isSelected ? sector.iconColor : sector.bgColor }
+                      ]}>
+                        <Ionicons
+                          name={sector.icon}
+                          size={moderateScale(24)}
+                          color={isSelected ? '#FFFFFF' : sector.iconColor}
+                        />
                       </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
+                      <View style={styles.sectorInfo}>
+                        <Text style={[styles.sectorTitle, { color: colors.text }]}>{sector.title}</Text>
+                      </View>
+                      
+                      {isSelected ? (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={moderateScale(24)}
+                          color="#3B5BFD"
+                        />
+                      ) : (
+                        <TouchableOpacity onPress={() => toggleExpand(sector.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                          <Ionicons
+                            name={expandedSector === sector.id ? "chevron-up" : "chevron-down"}
+                            size={moderateScale(24)}
+                            color={colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </TouchableOpacity>
 
-          {/* Add Services Button removed as requested */}
+                  {/* Dropdown Services */}
+                  {expandedSector === sector.id && (
+                    <View style={[
+                      styles.servicesDropdown,
+                      { backgroundColor: colors.card }
+                    ]}>
+                      {sector.services.map((service, index) => (
+                        <View key={index} style={styles.serviceItem}>
+                          <Text style={styles.bulletPoint}>•</Text>
+                          <Text style={styles.serviceText}>{service}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
 
           {/* Continue Button */}
           {selectedSector === null && (
@@ -335,11 +337,9 @@ const ServiceSectorSelectionScreen: React.FC = () => {
           <TouchableOpacity
             onPress={() => {
               if (!selectedSector) return;
-              // Determine full sector name from selected card id
               const selected = serviceSectors.find(s => s.id === selectedCardId);
               const sectorName = selected ? selected.title : undefined;
 
-              // Track service sector selection
               trackEvent('Service Sector Selected', {
                 sector_id: selectedSector,
                 sector_name: sectorName,
@@ -347,11 +347,9 @@ const ServiceSectorSelectionScreen: React.FC = () => {
                 sub_services: selected?.services || [],
               });
 
-              // If Doctor Consultation is selected, navigate to DoctorVerificationScreen first
               if (sectorName === 'Doctor Consultation') {
                 navigation.navigate('DoctorVerification', { sector: selectedSector, sectorName });
               } else {
-                // For all other services, go directly to KYCVerification
                 navigation.navigate('KYCVerification', { sector: selectedSector, sectorName });
               }
             }}
@@ -380,52 +378,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: moderateScale(20),
-    paddingTop: Platform.OS === 'ios' ? moderateScale(20) : moderateScale(20),
+    paddingTop: 20,
     paddingBottom: moderateScale(20),
   },
   scrollContent: {
     paddingBottom: moderateScale(40),
   },
-  logoWrap: {
+  headerContainer: {
     alignItems: 'center',
-    marginTop: moderateScale(40),
-    marginBottom: moderateScale(40),
-  },
-  logoImage: {
-    width: moderateScale(120),
-    height: moderateScale(50),
-    marginBottom: -25,
+    marginTop: moderateScale(20),
+    marginBottom: moderateScale(30),
   },
   instruction: {
     color: '#000000',
-    fontSize: moderateScale(20),
-    fontWeight: '600',
-    marginBottom: moderateScale(30),
-    marginTop: 2,
-    textAlign: 'left',
-    paddingHorizontal: 0,
+    fontSize: moderateScale(26),
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: '#666666',
+    fontSize: moderateScale(16),
+    marginTop: moderateScale(8),
+    textAlign: 'center',
   },
   sectorsContainer: {
     flex: 1,
     paddingHorizontal: 0,
   },
   sectorCard: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#ffffff',
     borderRadius: moderateScale(16),
     padding: moderateScale(20),
     marginBottom: moderateScale(16),
     marginHorizontal: 0,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: moderateScale(8),
-    shadowOffset: { width: 0, height: moderateScale(4) },
-    elevation: 3,
+    shadowOffset: { width: 0, height: moderateScale(2) },
+    elevation: 2,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
   selectedSectorCard: {
-    borderWidth: 2,
+    backgroundColor: '#EEF4FF',
     borderColor: '#3B5BFD',
-    backgroundColor: '#F8F9FF',
+    borderLeftWidth: 4,
   },
   sectorHeader: {
     flexDirection: 'row',
@@ -446,13 +444,7 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(18),
     fontWeight: '600',
     color: '#000000',
-    marginBottom: moderateScale(4),
   },
-  sectorDescription: {
-    fontSize: moderateScale(14),
-    color: '#666666',
-  },
-
   continueButton: {
     paddingVertical: moderateScale(16),
     borderRadius: moderateScale(14),
@@ -478,23 +470,6 @@ const styles = StyleSheet.create({
   disabledContinueButtonText: {
     color: '#666666',
   },
-  addServicesButton: {
-    marginBottom: moderateScale(16),
-  },
-  addServicesButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: moderateScale(14),
-    paddingHorizontal: moderateScale(20),
-    borderRadius: moderateScale(12),
-    gap: moderateScale(8),
-  },
-  addServicesButtonText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: moderateScale(16),
-  },
   helperText: {
     color: '#666666',
     marginTop: moderateScale(4),
@@ -513,15 +488,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderTopWidth: 0,
     borderColor: '#e0e0e0',
-  },
-  selectedOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 76, 143, 0.12)',
-    borderRadius: moderateScale(16),
   },
   serviceItem: {
     flexDirection: 'row',
