@@ -147,6 +147,23 @@ const LoginScreen: React.FC = () => {
       return
     }
 
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      showModal({
+        type: 'error',
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address (e.g. name@gmail.com)',
+        primaryLabel: 'OK',
+        onPrimary: hideModal,
+      })
+      trackEvent('Login Attempt Failed', {
+        reason: 'invalid_email_format',
+        email_provided: true,
+      })
+      return
+    }
+
     setLoading(true)
     trackEvent('Login Attempt Started', {
       email: email.toLowerCase(), // Track email for user identification
