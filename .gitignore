@@ -1,0 +1,12 @@
+node_modules/
+.env
+.expo/
+dist/
+build/
+.DS_Store
+.vscode/
+.idea/
+.mcp.json
+**/node_modules/
+**/dist/
+**/build/

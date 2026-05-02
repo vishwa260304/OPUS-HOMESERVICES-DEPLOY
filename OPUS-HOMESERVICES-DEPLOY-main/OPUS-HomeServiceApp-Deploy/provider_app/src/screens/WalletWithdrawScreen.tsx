@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { moderateScale } from '../utils/responsive';
 import { useTheme } from '../context/ThemeContext';
-import { getBankAccounts, upsertBankAccount, getEarningsSummary, getSelectedSector } from '../utils/appState';
+import { getBankAccounts, upsertBankAccount, getSelectedSector } from '../utils/appState';
+import { supabase } from '../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const WalletWithdrawScreen: React.FC = () => {
@@ -21,8 +22,25 @@ const WalletWithdrawScreen: React.FC = () => {
   const [upiId, setUpiId] = useState('');
   const [agreed, setAgreed] = useState(false);
 
+  const [walletBalance, setWalletBalance] = useState<number>(0);
   const banks = useMemo(() => getBankAccounts(), []);
-  const earnings = useMemo(() => getEarningsSummary(), []);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('bookings')
+        .select('total, status')
+        .or(`provider_id.eq.${user.id},doctor_user_id.eq.${user.id},acting_driver_id.eq.${user.id}`)
+        .eq('status', 'completed');
+      if (data) {
+        const balance = data.reduce((s, b) => s + (Number(b.total) || 0), 0);
+        setWalletBalance(balance);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     if (banks && banks.length > 0) {
       setSelectedBankId((prev) => prev ?? banks[0].id);
@@ -50,9 +68,39 @@ const WalletWithdrawScreen: React.FC = () => {
     setSelectedBankId(id);
   };
 
-  const submitWithdraw = () => {
-    // Demo flow: in a real app we'd call backend. Here we just navigate back.
-    navigation.goBack();
+  const submitWithdraw = async () => {
+    const amt = Number(amount);
+    if (!amt || amt < 100) {
+      Alert.alert('Minimum ₹100', 'Enter an amount of at least ₹100.');
+      return;
+    }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const selectedBank = banks.find(b => b.id === selectedBankId) ?? null;
+
+      const { error } = await supabase.from('provider_withdrawals').insert({
+        user_id: user.id,
+        amount: amt,
+        method,
+        account_holder: method !== 'UPI' ? (selectedBank?.holder ?? holder ?? null) : null,
+        account_number: method !== 'UPI' ? (selectedBank?.accountNo ?? accountNo ?? null) : null,
+        ifsc_code: method !== 'UPI' ? (selectedBank?.ifsc ?? ifsc ?? null) : null,
+        upi_id: method === 'UPI' ? upiId : null,
+        status: 'pending',
+      });
+
+      if (error) throw error;
+
+      Alert.alert(
+        'Request Submitted',
+        `Your withdrawal of ₹${amt} via ${method} has been received. Processing typically takes 1–3 business days.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to submit withdrawal. Please try again.');
+    }
   };
 
   return (
@@ -70,7 +118,7 @@ const WalletWithdrawScreen: React.FC = () => {
 
       <View style={[styles.balanceCard, styles.cardShadow, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
         <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Available balance</Text>
-        <Text style={[styles.balanceValue, { color: sectorPrimary }]}>₹{earnings.todayAmount}</Text>
+        <Text style={[styles.balanceValue, { color: sectorPrimary }]}>₹{walletBalance}</Text>
       </View>
 
       {/* Method selector */}

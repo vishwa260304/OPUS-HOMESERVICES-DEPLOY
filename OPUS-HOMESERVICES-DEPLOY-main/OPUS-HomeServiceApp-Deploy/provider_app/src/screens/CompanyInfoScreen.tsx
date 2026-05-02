@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, Alert, Image, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +9,8 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { moderateScale } from '../utils/responsive';
 import BottomTab from '../components/BottomTab';
 import OpusAgentLogo from '../components/OpusAgentLogo';
-import { getCompanyInfo, setCompanyInfo, getNotifications } from '../utils/appState';
+import { getNotifications } from '../utils/appState';
+import { supabase } from '../lib/supabase';
 
 type CompanyForm = {
   companyName: string;
@@ -37,35 +38,56 @@ const CompanyInfoScreen = () => {
     photo: null,
   });
 
-  // Start with empty fields so users don't see seeded defaults
   useEffect(() => {
-    setForm({ companyName: '', typeOfBusiness: '', servicesOffered: '', phone: '', email: '', address: '', photo: null });
-  }, []);
+    if (!isFocused) return;
+    setNotificationCount(getNotifications().length);
 
-  useEffect(() => {
-    if (isFocused) {
-      const info = getCompanyInfo();
-      setBrandName(info.companyName || 'Fixit Partner');
-      setNotificationCount(getNotifications().length);
-      setForm({
-        companyName: info.companyName || '',
-        typeOfBusiness: info.typeOfBusiness || '',
-        servicesOffered: info.servicesOffered || '',
-        phone: info.phone || '',
-        email: info.email || '',
-        address: info.address || '',
-        photo: info.photo || null,
-      });
-    }
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('provider_company_info')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) {
+        setBrandName(data.company_name || 'Fixit Partner');
+        setForm({
+          companyName: data.company_name || '',
+          typeOfBusiness: data.type_of_business || '',
+          servicesOffered: data.services_offered || '',
+          phone: data.phone || '',
+          email: data.email || '',
+          address: data.address || '',
+          photo: data.photo_url || null,
+        });
+      }
+    })();
   }, [isFocused]);
 
   const onChange = <K extends keyof CompanyForm>(key: K, value: CompanyForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const onSave = () => {
-    setCompanyInfo(form);
-    Alert.alert('Saved', 'Company information updated');
-    navigation.goBack();
+  const onSave = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase.from('provider_company_info').upsert({
+        user_id: user.id,
+        company_name: form.companyName,
+        type_of_business: form.typeOfBusiness,
+        services_offered: form.servicesOffered,
+        phone: form.phone,
+        email: form.email,
+        address: form.address,
+        photo_url: form.photo,
+      }, { onConflict: 'user_id' });
+      if (error) throw error;
+      Alert.alert('Saved', 'Company information updated');
+      navigation.goBack();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to save. Please try again.');
+    }
   };
 
   const pickImage = async () => {

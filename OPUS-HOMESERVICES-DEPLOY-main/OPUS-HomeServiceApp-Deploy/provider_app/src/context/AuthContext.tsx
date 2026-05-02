@@ -9,6 +9,8 @@ interface AuthContextType {
   loading: boolean
   signUp: (email: string, password: string, fullName?: string, phone?: string) => Promise<{ data: any; error: AuthError | null }>
   signIn: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>
+  signInWithGoogle: (params: { token: string; accessToken?: string; nonce?: string }) => Promise<{ data: any; error: AuthError | null }>
+  signInWithApple: (params: { token: string; nonce?: string }) => Promise<{ data: any; error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
   resetPassword: (email: string) => Promise<{ data: any; error: AuthError | null }>
   updateProfile: (updates: { full_name?: string; avatar_url?: string }) => Promise<{ data: any; error: AuthError | null }>
@@ -142,6 +144,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return await api.auth.signIn(email, password)
   }
 
+  const signInWithGoogle = async (params: { token: string; accessToken?: string; nonce?: string }) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: params.token,
+        access_token: params.accessToken,
+        nonce: params.nonce,
+      })
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: error as AuthError }
+    }
+  }
+
+  const signInWithApple = async (params: { token: string; nonce?: string }) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: params.token,
+        nonce: params.nonce,
+      })
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: error as AuthError }
+    }
+  }
+
   const signOut = async () => {
     const result = await api.auth.signOut()
     // Clear local state immediately
@@ -203,6 +232,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     signUp,
     signIn,
+    signInWithGoogle,
+    signInWithApple,
     signOut,
     resetPassword,
     updateProfile,

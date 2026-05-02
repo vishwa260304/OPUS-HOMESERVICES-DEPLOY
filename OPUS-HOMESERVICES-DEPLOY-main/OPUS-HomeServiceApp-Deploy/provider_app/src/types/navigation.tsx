@@ -42,6 +42,7 @@ export type RootStackParamList = {
     titleMonthly?: string;
   } | undefined;
   Support: undefined;
+  GeminiChatSupport: undefined;
   TechnicalHelp: undefined;
   JobIssues: undefined;
   PaymentIssues: undefined;

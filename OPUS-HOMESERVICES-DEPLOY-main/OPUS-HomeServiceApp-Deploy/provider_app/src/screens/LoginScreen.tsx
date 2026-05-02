@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   View,
   Text,
@@ -13,9 +13,16 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useScreenTracking } from '../hooks/useScreenTracking'
 import { analytics, trackEvent } from '../services/analytics'
-import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import * as WebBrowser from 'expo-web-browser'
+import * as AppleAuthentication from 'expo-apple-authentication'
+import { makeRedirectUri } from 'expo-auth-session'
+import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google'
+
+WebBrowser.maybeCompleteAuthSession()
 
 type AppModalType = 'error' | 'success' | 'warning' | 'info'
 
@@ -121,6 +128,26 @@ const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState<AppModalState>({ visible: false, type: 'info', title: '' })
   const navigation = useNavigation()
+  const { signIn, signInWithGoogle, signInWithApple } = useAuth()
+  const googleConfigured = Boolean(
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+  )
+
+  const googleConfig = useMemo(() => ({
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? 'missing-ios-client-id',
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? 'missing-android-client-id',
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? 'missing-web-client-id',
+    scopes: ['openid', 'profile', 'email'],
+    selectAccount: true,
+    redirectUri: makeRedirectUri({
+      scheme: 'fixitapp',
+      path: 'oauthredirect',
+    }),
+  }), [])
+
+  const [googleRequest, , promptGoogleAsync] = useIdTokenAuthRequest(googleConfig)
 
   // Track screen view
   useScreenTracking('Login Screen')
@@ -130,6 +157,134 @@ const LoginScreen: React.FC = () => {
 
   const hideModal = () =>
     setModal(prev => ({ ...prev, visible: false }))
+
+  const generateNonce = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+
+  const handleGoogleLogin = async () => {
+    if (!googleConfigured || !googleRequest) {
+      showModal({
+        type: 'warning',
+        title: 'Google Sign-In Not Ready',
+        message: 'Please add the Google client IDs to .env and restart the app.',
+        primaryLabel: 'OK',
+        onPrimary: hideModal,
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const result = await promptGoogleAsync()
+      if (result.type !== 'success') {
+        return
+      }
+
+      const idToken = result.authentication?.idToken ?? result.params?.id_token
+      const accessToken = result.authentication?.accessToken ?? result.params?.access_token
+
+      if (!idToken) {
+        throw new Error('Google sign-in did not return an ID token.')
+      }
+
+      const { error } = await signInWithGoogle({
+        token: idToken,
+        accessToken,
+      })
+
+      if (error) {
+        showModal({
+          type: 'error',
+          title: 'Google Login Failed',
+          message: error.message || 'Unable to sign in with Google.',
+          primaryLabel: 'OK',
+          onPrimary: hideModal,
+        })
+        return
+      }
+    } catch (error: any) {
+      showModal({
+        type: 'error',
+        title: 'Google Login Failed',
+        message: error?.message || 'Unable to sign in with Google.',
+        primaryLabel: 'OK',
+        onPrimary: hideModal,
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAppleLogin = async () => {
+    if (Platform.OS !== 'ios') {
+      showModal({
+        type: 'warning',
+        title: 'Apple Sign-In',
+        message: 'Apple sign-in is only available on iPhone and iPad.',
+        primaryLabel: 'OK',
+        onPrimary: hideModal,
+      })
+      return
+    }
+
+    const available = await AppleAuthentication.isAvailableAsync()
+    if (!available) {
+      showModal({
+        type: 'warning',
+        title: 'Apple Sign-In Not Available',
+        message: 'Apple sign-in is not available on this device.',
+        primaryLabel: 'OK',
+        onPrimary: hideModal,
+      })
+      return
+    }
+
+    const nonce = generateNonce()
+
+    setLoading(true)
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce,
+      })
+
+      if (!credential.identityToken) {
+        throw new Error('Apple sign-in did not return an identity token.')
+      }
+
+      const { error } = await signInWithApple({
+        token: credential.identityToken,
+        nonce,
+      })
+
+      if (error) {
+        showModal({
+          type: 'error',
+          title: 'Apple Login Failed',
+          message: error.message || 'Unable to sign in with Apple.',
+          primaryLabel: 'OK',
+          onPrimary: hideModal,
+        })
+        return
+      }
+    } catch (error: any) {
+      if (error?.code === 'ERR_REQUEST_CANCELED') {
+        return
+      }
+
+      showModal({
+        type: 'error',
+        title: 'Apple Login Failed',
+        message: error?.message || 'Unable to sign in with Apple.',
+        primaryLabel: 'OK',
+        onPrimary: hideModal,
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -170,7 +325,7 @@ const LoginScreen: React.FC = () => {
     })
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await signIn(email, password)
 
       console.log('[LOGIN RESULT]', { userId: data?.user?.id, error }) // FIXED: Bug 2
 
@@ -257,7 +412,21 @@ const LoginScreen: React.FC = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <LinearGradient
+        colors={['#004c8f', '#0c1a5d']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroBackdrop}
+      />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.brandHeader}>
+          <View style={styles.brandMark}>
+            <Ionicons name="construct" size={24} color="#ffffff" />
+          </View>
+          <Text style={styles.brandTitle}>FIXIT Partner</Text>
+          <Text style={styles.brandSubtitle}>Manage jobs, payouts, and provider support in one place.</Text>
+        </View>
+
         <View style={styles.formContainer}>
           <Text style={styles.title}>Welcome</Text>
           <Text style={styles.subtitle}>Sign in to your Fixit service provider account</Text>
@@ -314,6 +483,36 @@ const LoginScreen: React.FC = () => {
             )}
           </TouchableOpacity>
 
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.socialButton, styles.googleButton, (!googleConfigured || loading) && styles.socialButtonDisabled]}
+            onPress={handleGoogleLogin}
+            activeOpacity={0.85}
+            disabled={!googleConfigured || loading}
+          >
+            <View style={styles.googleMark}>
+              <Text style={styles.googleMarkText}>G</Text>
+            </View>
+            <Text style={styles.socialButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          {Platform.OS === 'ios' ? (
+            <View style={[styles.appleButtonWrap, loading && styles.socialButtonDisabled]}>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={10}
+                style={styles.appleNativeButton}
+                onPress={loading ? () => undefined : handleAppleLogin}
+              />
+            </View>
+          ) : null}
+
           <View style={styles.signupContainer}>
             <Text style={styles.signupText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('SignUp' as never)}>
@@ -334,14 +533,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
+  heroBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 280,
+  },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
+    paddingTop: 64,
+    paddingBottom: 36,
+  },
+  brandHeader: {
+    alignItems: 'center',
+    marginBottom: 22,
+  },
+  brandMark: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  brandTitle: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  brandSubtitle: {
+    color: '#dbeafe',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 6,
+    maxWidth: 300,
   },
   formContainer: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 24,
     shadowColor: '#000',
     shadowOffset: {
@@ -351,6 +588,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: '#eef2f7',
   },
   title: {
     fontSize: 28,
@@ -415,6 +654,68 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#d1d5db',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#6b7280',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  socialButton: {
+    minHeight: 52,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  socialButtonDisabled: {
+    opacity: 0.6,
+  },
+  googleButton: {
+    backgroundColor: '#ffffff',
+    borderColor: '#d1d5db',
+  },
+  googleMark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleMarkText: {
+    color: '#4285F4',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  appleButtonWrap: {
+    height: 52,
+    marginBottom: 12,
+  },
+  appleNativeButton: {
+    width: '100%',
+    height: 52,
+  },
+  socialButtonText: {
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '700',
   },
   signupContainer: {
     flexDirection: 'row',

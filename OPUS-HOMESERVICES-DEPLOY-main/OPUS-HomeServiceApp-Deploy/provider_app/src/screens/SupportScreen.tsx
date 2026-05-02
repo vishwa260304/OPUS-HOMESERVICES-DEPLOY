@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Platform, StatusBar, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Platform, StatusBar, BackHandler, Linking } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getCompanyInfo, getNotifications, getTickets } from '../utils/appState';
@@ -164,13 +164,17 @@ const SupportScreen = () => {
         </TouchableOpacity>
 
         {/* Bottom Support Actions */}
-        <TouchableOpacity style={[styles.chatSupportBtn, { backgroundColor: sectorPrimary }]} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[styles.chatSupportBtn, { backgroundColor: sectorPrimary }]}
+          onPress={() => navigation.navigate('GeminiChatSupport')}
+          activeOpacity={0.85}
+        >
           <View style={{flexDirection:'row', alignItems:'center'}}>
             <Ionicons name="chatbubble-ellipses" size={moderateScale(18)} color="#ffffff" />
             <Text style={[styles.chatSupportText, { color: '#ffffff' }]}>  Chat with Support</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.callSupportBtn, { borderColor: colors.border }]} activeOpacity={0.85}>
+        <TouchableOpacity style={[styles.callSupportBtn, { borderColor: colors.border }]} onPress={() => Linking.openURL('tel:+910000000000')} activeOpacity={0.85}>
           <View style={{flexDirection:'row', alignItems:'center'}}>
             <Ionicons name="call" size={moderateScale(18)} color="#ff3b30" />
             <Text style={[styles.callSupportText, { color: colors.text }]}>  Call Support Helpline</Text>
@@ -268,14 +272,17 @@ const styles = StyleSheet.create({
     flexDirection:'row', 
     flexWrap:'wrap', 
     justifyContent:'space-between',
+    alignItems: 'stretch',
     marginBottom: moderateScale(24)
   },
   tile: { 
     backgroundColor:'#ffffff', 
     width:'48%', 
+    minHeight: moderateScale(142),
     borderRadius: moderateScale(16), 
     padding: moderateScale(16), 
     marginBottom: moderateScale(12),
+    justifyContent: 'flex-start',
     alignItems: 'center',
     textAlign: 'center'
   },
@@ -294,12 +301,16 @@ const styles = StyleSheet.create({
     fontWeight:'700',
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: moderateScale(4)
+    marginBottom: moderateScale(6),
+    minHeight: moderateScale(40),
+    lineHeight: moderateScale(19)
   },
   tileSub: { 
     color:'#6B7280', 
     fontSize: moderateScale(12),
-    textAlign: 'center'
+    textAlign: 'center',
+    lineHeight: moderateScale(16),
+    minHeight: moderateScale(32)
   },
   ticketsHeader: {
     flexDirection: 'row',

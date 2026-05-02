@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { moderateScale } from '../utils/responsive';
-import { getBookings, getSelectedSector } from '../utils/appState';
+import { getSelectedSector } from '../utils/appState';
+import { supabase } from '../lib/supabase';
 import BottomTab from '../components/BottomTab';
 
 interface Patient {
@@ -40,47 +41,58 @@ const MyPatientsScreen: React.FC = () => {
   const sectorGradient: [string, string] = selectedSector === 'healthcare' ? ['#0BB48F', '#0A8F6A'] : ['#004c8f', '#0c1a5d'];
   const sectorPrimary = selectedSector === 'healthcare' ? '#0AAE8A' : '#004c8f';
 
-  // Extract patients from bookings and watch for real-time changes
+  // Fetch bookings from Supabase and set up real-time subscription
   useEffect(() => {
     if (!isFocused) return;
 
-    // Load patients immediately when screen is focused
-    loadPatients();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    // Watch for bookings changes in real-time
-    // This ensures patients list updates when bookings are added/updated/deleted
-    let lastBookingsSignature = '';
-    
-    const checkBookingsChanges = () => {
-      const currentBookings = getBookings();
-      // Create a signature based on bookings count, IDs, and statuses
-      const currentSignature = `${currentBookings.length}-${currentBookings
-        .map(b => `${b.id}-${b.status}-${(b as any).originalStatus || ''}`)
-        .join(',')}`;
-      
-      // If bookings changed, reload patients
-      if (currentSignature !== lastBookingsSignature) {
-        lastBookingsSignature = currentSignature;
-        loadPatients();
+    const fetchAndLoad = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('doctor_user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        loadPatients(data);
       }
+
+      // Real-time subscription — replaces the 1.5s setInterval
+      channel = supabase
+        .channel(`my-patients-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'bookings',
+            filter: `doctor_user_id=eq.${user.id}`,
+          },
+          async () => {
+            // Re-fetch on any INSERT/UPDATE/DELETE
+            const { data: fresh } = await supabase
+              .from('bookings')
+              .select('*')
+              .eq('doctor_user_id', user.id)
+              .order('created_at', { ascending: false });
+            if (fresh) loadPatients(fresh);
+          },
+        )
+        .subscribe();
     };
 
-    // Check for changes every 1.5 seconds for real-time updates
-    const interval = setInterval(checkBookingsChanges, 1500);
-
-    // Initial signature
-    const initialBookings = getBookings();
-    lastBookingsSignature = `${initialBookings.length}-${initialBookings
-      .map(b => `${b.id}-${b.status}-${(b as any).originalStatus || ''}`)
-      .join(',')}`;
+    fetchAndLoad();
 
     return () => {
-      clearInterval(interval);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [isFocused]);
 
-  const loadPatients = () => {
-    const bookings = getBookings();
+  const loadPatients = (bookings: any[]) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
@@ -381,10 +393,21 @@ const MyPatientsScreen: React.FC = () => {
     return null;
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadPatients();
-    setTimeout(() => setRefreshing(false), 500);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('doctor_user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (data) loadPatients(data);
+      }
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const renderPatientCard = ({ item: patient }: { item: Patient }) => (

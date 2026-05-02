@@ -19,7 +19,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ciel.fixitpartner",
-      "buildNumber": "1",
+      "buildNumber": "2",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "FIXIT Partner uses your location to manage nearby service requests and provider availability.",
         "NSCameraUsageDescription": "FIXIT Partner needs camera access to capture KYC and verification documents.",

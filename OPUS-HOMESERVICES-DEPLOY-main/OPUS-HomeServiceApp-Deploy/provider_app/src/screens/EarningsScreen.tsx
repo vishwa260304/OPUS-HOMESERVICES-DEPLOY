@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigation, useIsFocused, useRoute } from '@react-navigation/native';
-import { getCompanyInfo, getEarningsSummary, getBookings, getNotifications, loadCachedEarningsSummary, cacheEarningsSummary } from '../utils/appState';
+import { getNotifications } from '../utils/appState';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Platform, StatusBar, RefreshControl, Alert, BackHandler } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { supabase } from '../lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,76 +88,77 @@ const EarningsScreen = () => {
     return d;
   };
 
-  // Load earnings data
+  const parseAmount = (v: any): number => {
+    const n = Number(String(v ?? 0).replace(/[^0-9.]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  // Load earnings data directly from Supabase bookings
   const loadEarningsData = async () => {
     try {
       setLoading(true);
-      
-      // Get company info for user name
-      const companyInfo = getCompanyInfo();
-      if (companyInfo?.companyName) {
-        setUserName(companyInfo.companyName.toUpperCase());
-      }
-      
       setNotificationCount(getNotifications().length);
-      
-      // Load earnings summary
-      const es = getEarningsSummary();
-      setTodayAmount(es.todayAmount || 0);
-      setTodayJobs(es.todayCompletedCount || 0);
-      
-      // Wallet balance equals sum of all completed booking amounts
-      const wallet = getBookings()
-        .filter(b => b.status === 'Completed')
-        .reduce((sum, b) => sum + (Number(String(b.amount).replace(/[^0-9.]/g, '')) || 0), 0);
-      setWalletBalance(wallet);
-      
-      // Set current week range
-      const weekStart = getWeekStart(currentWeekStart);
-      setCurrentWeekRange(formatDateRange(weekStart));
-      
-      // Get bookings data
-      const list = getBookings();
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch all completed bookings for this provider (covers all sectors)
+      const { data: rows, error } = await supabase
+        .from('bookings')
+        .select('id, total, status, created_at, doctor_user_id')
+        .or(
+          `provider_id.eq.${user.id},doctor_user_id.eq.${user.id},acting_driver_id.eq.${user.id}`,
+        )
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching earnings bookings:', error);
+        return;
+      }
+
+      const list = rows ?? [];
       const now = new Date();
 
-      // Compute weekly total and jobs for the selected week (count only Completed)
-      try {
-        const weekStartForCalc = getWeekStart(currentWeekStart);
-        const weekEndForCalc = new Date(weekStartForCalc);
-        weekEndForCalc.setDate(weekEndForCalc.getDate() + 6);
-        const bookingsInWeek = list.filter(
-          b => b.createdAt && new Date(b.createdAt) >= weekStartForCalc && new Date(b.createdAt) <= weekEndForCalc && String((b.status || '')).toLowerCase() === 'completed'
-        );
-        const computedWeeklyTotal = bookingsInWeek.reduce((sum, b) => sum + (Number(String(b.amount).replace(/[^0-9.]/g, '')) || 0), 0);
-        setWeeklyAmount(Math.round(computedWeeklyTotal));
-        setWeeklyJobsCount(bookingsInWeek.length);
-        try {
-          await cacheEarningsSummary(getEarningsSummary());
-        } catch (e) {
-          console.debug('Error caching earnings from EarningsScreen', e);
-        }
-      } catch (e) {
-        console.error('Error computing weekly total in EarningsScreen', e);
-      }
-      
-      // (time on duty removed)
+      // Today earnings
+      const todayCompleted = list.filter(
+        b => b.status === 'completed' && b.created_at && isSameDay(new Date(b.created_at), now),
+      );
+      setTodayAmount(todayCompleted.reduce((s, b) => s + parseAmount(b.total), 0));
+      setTodayJobs(todayCompleted.length);
+      setTodayCompletedList(todayCompleted);
 
-      // Today's completed bookings
-      const isSameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-      const todayList = list.filter(b => b.status === 'Completed' && b.createdAt && isSameDay(new Date(b.createdAt), now));
-      setTodayCompletedList(todayList);
+      // Wallet = sum of all completed bookings
+      const totalCompleted = list.filter(b => b.status === 'completed');
+      setWalletBalance(totalCompleted.reduce((s, b) => s + parseAmount(b.total), 0));
 
-      // Weekly chart data (last 7 days)
+      // Selected week
+      const weekStart = getWeekStart(currentWeekStart);
+      setCurrentWeekRange(formatDateRange(weekStart));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+      const weekRows = list.filter(b => {
+        const t = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return b.status === 'completed' && t >= weekStart.getTime() && t <= weekEnd.getTime();
+      });
+      setWeeklyAmount(Math.round(weekRows.reduce((s, b) => s + parseAmount(b.total), 0)));
+      setWeeklyJobsCount(weekRows.length);
+
+      // 7-day chart
       const labels: string[] = [];
       const data: number[] = [];
-      for (let i = 6; i >= 0; i -= 1) {
+      for (let i = 6; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
-        const dayLabel = d.toLocaleDateString(undefined, { weekday: 'short' });
-        labels.push(dayLabel);
+        labels.push(d.toLocaleDateString(undefined, { weekday: 'short' }));
         const dayTotal = list
-          .filter(b => (b.status === 'Completed' || b.status === 'InProgress') && b.createdAt && isSameDay(new Date(b.createdAt), d))
-          .reduce((sum, b) => sum + Number(String(b.amount).replace(/[^0-9.]/g, '')) || 0, 0);
+          .filter(b => b.status === 'completed' && b.created_at && isSameDay(new Date(b.created_at), d))
+          .reduce((s, b) => s + parseAmount(b.total), 0);
         data.push(dayTotal);
       }
       setWeeklyChartLabels(labels);
@@ -168,32 +169,26 @@ const EarningsScreen = () => {
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       const weeks: { title: string; jobs: string; amount: string }[] = [];
       let cursor = new Date(startOfMonth);
-      let weekIndex = 1;
+      let wi = 1;
       while (cursor <= endOfMonth) {
-        const weekStart = new Date(cursor);
-        const weekEnd = new Date(cursor);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        if (weekEnd > endOfMonth) weekEnd.setTime(endOfMonth.getTime());
-
+        const wStart = new Date(cursor);
+        const wEnd = new Date(cursor);
+        wEnd.setDate(wEnd.getDate() + 6);
+        if (wEnd > endOfMonth) wEnd.setTime(endOfMonth.getTime());
         const inWeek = list.filter(b => {
-          const ts = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return ts >= weekStart.getTime() && ts <= weekEnd.getTime();
+          const t = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return t >= wStart.getTime() && t <= wEnd.getTime();
         });
-        const amountNum = inWeek
-          .filter(b => b.status === 'Completed' || b.status === 'InProgress')
-          .reduce((sum, b) => sum + Number(String(b.amount).replace(/[^0-9.]/g, '')) || 0, 0);
-        const jobsCount = inWeek.filter(b => b.status === 'Completed').length;
-
-        const title = `Week ${weekIndex}: ${weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}–${weekEnd.toLocaleDateString(undefined, { day: 'numeric' })}`;
-        weeks.push({ title, jobs: `${jobsCount} Jobs`, amount: `₹${amountNum}` });
-
+        const amt = inWeek.filter(b => b.status === 'completed').reduce((s, b) => s + parseAmount(b.total), 0);
+        const jobs = inWeek.filter(b => b.status === 'completed').length;
+        const title = `Week ${wi}: ${wStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}–${wEnd.toLocaleDateString(undefined, { day: 'numeric' })}`;
+        weeks.push({ title, jobs: `${jobs} Jobs`, amount: `₹${amt}` });
         cursor.setDate(cursor.getDate() + 7);
-        weekIndex += 1;
+        wi++;
       }
       setMonthWeeks(weeks);
-      
-    } catch (error) {
-      console.error('Error loading earnings data:', error);
+    } catch (err) {
+      console.error('Error loading earnings data:', err);
       Alert.alert('Error', 'Failed to load earnings data. Please try again.');
     } finally {
       setLoading(false);
@@ -284,27 +279,14 @@ const EarningsScreen = () => {
 
   useEffect(() => {
     if (isFocused) {
-      (async () => {
-        try {
-          const cached = await loadCachedEarningsSummary();
-          if (cached) {
-            setTodayAmount(cached.todayAmount || 0);
-            setTodayJobs(cached.todayCompletedCount || 0);
-            setWeeklyAmount(Math.round(cached.weeklyAmount) || 0);
-            setWeeklyJobsCount(cached.todayCompletedCount || 0);
-          }
-        } catch (e) {
-          console.debug('Error loading cached earnings in EarningsScreen', e);
-        }
-        await loadEarningsData();
-      })();
+      loadEarningsData();
     }
   }, [isFocused, currentWeekStart]);
 
   const weeklyRef = useRef(null);
   const scrollRef = useRef(null);
 
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   
   // Header gradient colors - always blue, even for doctor users
@@ -524,42 +506,6 @@ const EarningsScreen = () => {
           </LinearGradient>
             </TouchableOpacity>
       </ScrollView>
-      {/* Full-screen overlay: real blur on iOS; themed semi-opaque sheath on Android (expo-blur has weak blur on Android) */}
-      {Platform.OS === 'ios' ? (
-        <BlurView
-          tint={isDark ? 'dark' : 'light'}
-          intensity={80}
-          style={[StyleSheet.absoluteFillObject, styles.blurOverlay]}
-        />
-      ) : (
-        <View
-          style={[
-            StyleSheet.absoluteFillObject,
-            styles.blurOverlay,
-            {
-              backgroundColor: isDark
-                ? 'rgba(18, 18, 18, 0.97)'
-                : 'rgba(255, 255, 255, 0.95)',
-            },
-          ]}
-        />
-      )}
-
-      {/* "Coming soon" block — uses same gradient as header */}
-      <View style={styles.comingSoonOverlay}>
-        <LinearGradient
-          colors={sectorGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.comingSoonPill}
-        >
-          <Text style={styles.comingSoonSubline}>Earnings & payouts in one place</Text>
-          <Text style={styles.comingSoonHeadline}>coming soon!</Text>
-        </LinearGradient>
-      </View>
-
-
-      
       <BottomTab active={'Earnings'} />
     </View>
   );

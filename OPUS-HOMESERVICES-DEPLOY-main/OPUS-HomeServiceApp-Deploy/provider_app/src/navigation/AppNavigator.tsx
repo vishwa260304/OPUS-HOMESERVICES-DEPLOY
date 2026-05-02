@@ -32,6 +32,7 @@ import DoctorWeeklyPerformanceScreen from '../screens/DoctorWeeklyPerformanceScr
 import ProviderWeeklyPerformanceScreen from '../screens/ProviderWeeklyPerformanceScreen';
 import EarningsScreen from '../screens/EarningsScreen';
 import SupportScreen from '../screens/SupportScreen';
+import GeminiChatSupportScreen from '../screens/GeminiChatSupportScreen';
 import TechnicalHelpScreen from '../screens/TechnicalHelpScreen';
 import JobIssuesScreen from '../screens/JobIssuesScreen';
 import PaymentIssuesScreen from '../screens/PaymentIssuesScreen';
@@ -308,10 +309,10 @@ export const NavigationController: React.FC<{
       }
       
       // Refresh verification status to ensure we have the latest data
-      refreshVerification().then(async () => {
-        // Wait a bit for verification status to update
+      refreshVerification().then(async (freshData) => {
+        // Wait a bit for navigation to be ready
         await new Promise(resolve => setTimeout(resolve, 300));
-        
+
         if (hasNavigatedRef.current) return; // Already navigated
         if (!navigationRef.current?.isReady()) return;
 
@@ -331,7 +332,11 @@ export const NavigationController: React.FC<{
           'Bookings',
         ];
         const isOnDoctorScreen = doctorScreens.includes(currentRoute || '');
-        const isDoctorUser = verification?.selected_sector === 'Doctor Consultation';
+
+        // Use fresh data returned from refreshVerification to avoid stale closure values
+        const freshIsVerified = freshData?.isVerified ?? isVerified;
+        const freshVerification = freshData?.verification ?? verification;
+        const isDoctorUser = freshVerification?.selected_sector === 'Doctor Consultation';
 
         if (isInDoctorSessionRef.current && isDoctorUser) {
           hasNavigatedRef.current = true;
@@ -344,15 +349,15 @@ export const NavigationController: React.FC<{
         }
 
         let targetRoute = 'ServiceSectorSelection';
-        if (isVerified) {
-          const savedSector = verification?.selected_sector;
+        if (freshIsVerified) {
+          const savedSector = freshVerification?.selected_sector;
           if (savedSector === 'Medicine Delivery') {
             targetRoute = 'PharmDashboard';
           } else if (savedSector === 'Doctor Consultation') {
             targetRoute = 'DoctorDashboard';
             isInDoctorSessionRef.current = true;
           } else if (savedSector === 'Acting Drivers') {
-            const hasFare = (verification as any)?.fare_per_hour != null;
+            const hasFare = (freshVerification as any)?.fare_per_hour != null;
             targetRoute = hasFare ? 'ActingDriversDashboard' : 'ActingDriverFare';
           } else {
             if (isInDoctorSessionRef.current && !isDoctorUser) {
@@ -376,10 +381,10 @@ export const NavigationController: React.FC<{
           setTimeout(() => {
             try {
               // CRITICAL: Final check before reset - if in doctor session, NEVER reset to Dashboard
-              const finalTargetRoute = (isInDoctorSessionRef.current && targetRoute === 'Dashboard' && verification?.selected_sector === 'Doctor Consultation')
+              const finalTargetRoute = (isInDoctorSessionRef.current && targetRoute === 'Dashboard' && freshVerification?.selected_sector === 'Doctor Consultation')
                 ? 'DoctorDashboard'
                 : targetRoute;
-              
+
               if (navigationRef.current?.isReady()) {
                 console.log(`User authenticated: Resetting navigation to ${finalTargetRoute} (original: ${targetRoute})`);
                 navigationRef.current.reset({
@@ -517,6 +522,7 @@ const AppNavigator: React.FC = () => {
       <Stack.Screen name="CompletedAppointments" component={CompletedAppointmentsScreen} />
       <Stack.Screen name="Earnings" component={EarningsScreen} />
       <Stack.Screen name="Support" component={SupportScreen} />
+      <Stack.Screen name="GeminiChatSupport" component={GeminiChatSupportScreen} />
       <Stack.Screen name="TechnicalHelp" component={TechnicalHelpScreen} />
       <Stack.Screen name="JobIssues" component={JobIssuesScreen} />
       <Stack.Screen name="PaymentIssues" component={PaymentIssuesScreen} />

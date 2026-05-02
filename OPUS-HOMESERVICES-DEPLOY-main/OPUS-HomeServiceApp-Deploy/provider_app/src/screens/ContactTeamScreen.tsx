@@ -2,18 +2,31 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { moderateScale } from '../utils/responsive';
+import { supabase } from '../lib/supabase';
 
 const ContactTeamScreen: React.FC = () => {
   const navigation = useNavigation();
   const [subject, setSubject] = useState('KYC Verification Help');
   const [message, setMessage] = useState('');
 
-  const submit = () => {
+  const submit = async () => {
     if (!message.trim()) {
       Alert.alert('Message required', 'Please describe your issue.');
       return;
     }
-    Alert.alert('Sent', 'Your message has been sent to our team.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('support_contacts').insert({
+        user_id: user?.id ?? null,
+        subject,
+        message,
+      });
+      if (error) throw error;
+      Alert.alert('Sent', 'Your message has been sent to our team.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (err) {
+      console.error('Failed to send contact message:', err);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+    }
   };
 
   return (

@@ -7,7 +7,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { moderateScale } from '../utils/responsive';
 import { useTheme } from '../context/ThemeContext';
-import { addTicket } from '../utils/appState';
+import { supabase } from '../lib/supabase';
 
 const ISSUE_OPTIONS = [
   'Payment Issues',
@@ -62,10 +62,32 @@ const RaiseTicketScreen = () => {
     Alert.alert('Saved', 'Your ticket has been saved as a draft.');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     Keyboard.dismiss();
-    const t = addTicket({ title: description?.slice(0, 32) || 'Support Ticket', category: category || 'Other', orderRef, description, status: 'Pending' });
-    Alert.alert('Submitted', 'Your ticket has been submitted.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    if (!category) {
+      Alert.alert('Category required', 'Please select an issue category.');
+      return;
+    }
+    if (!description.trim()) {
+      Alert.alert('Description required', 'Please describe your issue.');
+      return;
+    }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('support_tickets').insert({
+        user_id: user?.id ?? null,
+        title: description.slice(0, 32) || 'Support Ticket',
+        category: category || 'Other',
+        order_ref: orderRef || null,
+        description,
+        status: 'Pending',
+      });
+      if (error) throw error;
+      Alert.alert('Submitted', 'Your ticket has been submitted.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (err) {
+      console.error('Failed to submit ticket:', err);
+      Alert.alert('Error', 'Failed to submit ticket. Please try again.');
+    }
   };
 
   return (
