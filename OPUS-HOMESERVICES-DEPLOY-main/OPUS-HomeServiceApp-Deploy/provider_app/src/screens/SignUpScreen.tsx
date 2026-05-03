@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { Linking } from 'react-native'
 import { useAuth } from '../context/AuthContext'
 import { useNavigation } from '@react-navigation/native'
 import { useScreenTracking } from '../hooks/useScreenTracking'
@@ -424,7 +425,14 @@ const SignUpScreen: React.FC = () => {
           </View>
 
           <Text style={styles.termsText}>
-            By creating an account, you agree to our Terms of Service and Privacy Policy
+            By creating an account, you agree to our{' '}
+            <Text style={styles.linkText} onPress={() => Linking.openURL('https://www.thefixit.in/partner-terms-and-conditions')}>
+              Terms of Service
+            </Text>
+            {' '}and{' '}
+            <Text style={styles.linkText} onPress={() => Linking.openURL('https://www.thefixit.in/partner-privacy-policy')}>
+              Privacy Policy
+            </Text>
           </Text>
 
 
@@ -563,6 +571,10 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  linkText: {
+    color: '#007bff',
+    textDecorationLine: 'underline',
   },
   modalOverlay: {
     flex: 1,

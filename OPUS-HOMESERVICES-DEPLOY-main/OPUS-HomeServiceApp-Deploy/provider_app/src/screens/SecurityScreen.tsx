@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -209,6 +210,34 @@ const SecurityScreen: React.FC = () => {
           ))}
         </View>
 
+        {/* ── Legal ── */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="document-text-outline" size={moderateScale(22)} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Legal</Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.legalItem} 
+            onPress={() => Linking.openURL('https://www.thefixit.in/partner-privacy-policy')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.legalText, { color: colors.text }]}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={moderateScale(16)} color={colors.textSecondary} />
+          </TouchableOpacity>
+          
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          
+          <TouchableOpacity 
+            style={styles.legalItem} 
+            onPress={() => Linking.openURL('https://www.thefixit.in/partner-terms-and-conditions')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.legalText, { color: colors.text }]}>Terms of Service</Text>
+            <Ionicons name="chevron-forward" size={moderateScale(16)} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* ── Delete Account ── */}
         <View style={[styles.card, styles.dangerCard, { backgroundColor: colors.card, borderColor: '#ef4444' }]}>
           <View style={styles.cardHeader}>
@@ -343,6 +372,20 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     fontSize: moderateScale(15),
+  },
+  legalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: moderateScale(12),
+  },
+  legalText: {
+    fontSize: moderateScale(15),
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    width: '100%',
   },
 });
 

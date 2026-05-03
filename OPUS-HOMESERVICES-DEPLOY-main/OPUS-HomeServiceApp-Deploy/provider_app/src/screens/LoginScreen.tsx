@@ -130,15 +130,17 @@ const LoginScreen: React.FC = () => {
   const navigation = useNavigation()
   const { signIn, signInWithGoogle, signInWithApple } = useAuth()
   const googleConfigured = Boolean(
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
-    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+    Platform.select({
+      ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      default: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    })
   )
 
   const googleConfig = useMemo(() => ({
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? 'missing-ios-client-id',
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? 'missing-android-client-id',
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? 'missing-web-client-id',
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     scopes: ['openid', 'profile', 'email'],
     selectAccount: true,
     redirectUri: makeRedirectUri({
@@ -327,8 +329,6 @@ const LoginScreen: React.FC = () => {
     try {
       const { data, error } = await signIn(email, password)
 
-      console.log('[LOGIN RESULT]', { userId: data?.user?.id, error }) // FIXED: Bug 2
-
       if (error) {
         trackEvent('Login Failed', {
           error_message: error.message,
@@ -349,7 +349,6 @@ const LoginScreen: React.FC = () => {
 
       if (data?.user) {
         analytics.identify(data.user.id, { email: data.user.email ?? email.toLowerCase() })
-        console.log('// FIXED: Issue 1 - Mixpanel identify runs before Login Successful')
 
         trackEvent('Login Successful', {
           email: data.user.email,
@@ -517,6 +516,16 @@ const LoginScreen: React.FC = () => {
             <Text style={styles.signupText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('SignUp' as never)}>
               <Text style={styles.signupLink}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.legalLinksContainer}>
+            <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync('https://www.thefixit.in/partner-terms-and-conditions')}>
+              <Text style={styles.legalLinkText}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalDivider}> • </Text>
+            <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync('https://www.thefixit.in/partner-privacy-policy')}>
+              <Text style={styles.legalLinkText}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
 
@@ -730,6 +739,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#007bff',
     fontWeight: '600',
+  },
+  legalLinksContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  legalLinkText: {
+    fontSize: 13,
+    color: '#64748b',
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginHorizontal: 8,
   },
   verifiedBanner: {
     flexDirection: 'row',

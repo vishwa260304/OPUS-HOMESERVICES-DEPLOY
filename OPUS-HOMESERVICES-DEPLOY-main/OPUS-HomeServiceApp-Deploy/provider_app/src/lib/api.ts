@@ -7,6 +7,7 @@ export interface ProviderProfile {
   full_name: string | null
   avatar_url: string | null
   phone: string | null
+  push_token?: string | null
   created_at: string
   updated_at: string
 }
@@ -154,7 +155,7 @@ export const profileAPI = {
   // Update provider profile
   updateProfile: async (
     userId: string,
-    updates: Partial<Pick<ProviderProfile, 'full_name' | 'avatar_url' | 'phone'>>
+    updates: Partial<Pick<ProviderProfile, 'full_name' | 'avatar_url' | 'phone' | 'push_token'>>
   ) => {
     try {
       // Remove any null values from updates, as the DB expects undefined or string, not null
@@ -162,6 +163,7 @@ export const profileAPI = {
         full_name?: string;
         avatar_url?: string;
         phone?: string;
+        push_token?: string;
       } = {};
 
       if (updates.full_name !== undefined && updates.full_name !== null) {
@@ -172,6 +174,9 @@ export const profileAPI = {
       }
       if (updates.phone !== undefined && updates.phone !== null) {
         sanitizedUpdates.phone = updates.phone;
+      }
+      if (updates.push_token !== undefined && updates.push_token !== null) {
+        sanitizedUpdates.push_token = updates.push_token;
       }
 
       const { data, error } = await userProfile.updateProfile(userId, sanitizedUpdates);

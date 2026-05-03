@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (event === 'SIGNED_IN' && session?.user) {
           // User has verified their email and is now signed in
           // Create profile in providers_profiles table
-          console.log('User signed in, creating profile for:', session.user.email)
+          if (__DEV__) console.log('User signed in, creating profile for:', session.user.email)
           createUserProfile(session.user).catch(err => {
             console.error('Profile creation failed on sign in:', err)
             // This is non-critical - user can still proceed, profile can be created later
@@ -94,12 +94,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data: existingProfile, error: checkError } = await api.profile.getProfile(user.id)
       
       if (existingProfile) {
-        console.log('Profile already exists for user:', user.id)
+        if (__DEV__) console.log('Profile already exists for user:', user.id)
         return
       }
       
       if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found" error
-        console.warn('Error checking profile existence:', checkError)
+        if (__DEV__) console.warn('Error checking profile existence:', checkError)
         // Don't return here - try to create the profile anyway
       }
 
@@ -124,11 +124,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (retryError) {
             console.error('Failed to create profile on retry:', retryError)
           } else {
-            console.log('Profile created successfully on retry')
+            if (__DEV__) console.log('Profile created successfully on retry')
           }
         }, 2000)
       } else {
-        console.log('Profile created successfully:', data)
+        if (__DEV__) console.log('Profile created successfully:', data)
       }
     } catch (error) {
       console.error('Exception in createUserProfile:', error)

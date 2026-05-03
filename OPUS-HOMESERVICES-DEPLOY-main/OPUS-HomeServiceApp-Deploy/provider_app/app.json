@@ -23,9 +23,10 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "FIXIT Partner uses your location to manage nearby service requests and provider availability.",
-        "NSCameraUsageDescription": "FIXIT Partner needs camera access to capture KYC and verification documents.",
-        "NSPhotoLibraryUsageDescription": "FIXIT Partner accesses your photo library to upload profile and verification documents.",
-        "NSPhotoLibraryAddUsageDescription": "FIXIT Partner may save verification images to your library."
+        "NSCameraUsageDescription": "This allows you to take a profile picture and capture KYC verification documents for your service provider account.",
+        "NSPhotoLibraryUsageDescription": "This allows you to select a profile picture and upload verification documents for your service provider account.",
+        "NSPhotoLibraryAddUsageDescription": "This allows you to save generated verification images and receipts to your photo library.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "FIXIT Partner requires background location tracking to automatically assign nearby service requests while you are online."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,

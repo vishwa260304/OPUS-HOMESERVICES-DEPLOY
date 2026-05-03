@@ -114,7 +114,7 @@ const DashboardScreen: React.FC = () => {
         .eq('user_id', user.id);
 
       if (servicesError || !services || services.length === 0) {
-        console.log('No services found for provider');
+        if (__DEV__) console.log('No services found for provider');
         setBookings([]);
         return;
       }
@@ -129,7 +129,7 @@ const DashboardScreen: React.FC = () => {
         allBookings.push(...bookings);
       }
 
-      console.log('✅ Total bookings fetched:', allBookings.length);
+      if (__DEV__) console.log('✅ Total bookings fetched:', allBookings.length);
 
       // Sort by creation date (newest first)
       allBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -144,14 +144,14 @@ const DashboardScreen: React.FC = () => {
         setTodayCompletedCount(esFresh.todayCompletedCount || 0);
         setAcceptancePct(esFresh.acceptancePct || 0);
       } catch (e) {
-        console.debug('Could not update earnings from refreshed bookings', e);
+        if (__DEV__) console.debug('Could not update earnings from refreshed bookings', e);
       }
         // Cache earnings summary after bookings refresh
         try {
           const esToCache = getEarningsSummary();
           await cacheEarningsSummary(esToCache);
         } catch (e) {
-          console.debug('Error caching earnings after bookings refresh', e);
+          if (__DEV__) console.debug('Error caching earnings after bookings refresh', e);
         }
       // keep concise state update if needed
 
@@ -185,12 +185,12 @@ const DashboardScreen: React.FC = () => {
           const rpcCount = row?.review_count ? Number(row.review_count) : 0;
           setAvgRating(rpcAvg);
           setReviewCount(rpcCount);
-          try { await cacheAvgRating({ avgRating: rpcAvg, reviewCount: rpcCount }); } catch (e) { console.debug('cache avg rating failed', e); }
+          try { await cacheAvgRating({ avgRating: rpcAvg, reviewCount: rpcCount }); } catch (e) { if (__DEV__) console.debug('cache avg rating failed', e); }
           return;
         }
       } catch (e) {
         // ignore rpc errors and fall back to client-side scanning
-        console.debug('RPC get_provider_review_stats failed, falling back:', e);
+        if (__DEV__) console.debug('RPC get_provider_review_stats failed, falling back:', e);
       }
       // 1) If this user is a doctor, fetch reviews by doctor_id
       const { data: docData, error: docErr } = await supabase
@@ -203,7 +203,7 @@ const DashboardScreen: React.FC = () => {
         const docAvg = Math.round((sum / docData.length) * 10) / 10;
         setAvgRating(docAvg);
         setReviewCount(docData.length);
-        try { await cacheAvgRating({ avgRating: docAvg, reviewCount: docData.length }); } catch (e) { console.debug('cache avg rating failed', e); }
+        try { await cacheAvgRating({ avgRating: docAvg, reviewCount: docData.length }); } catch (e) { if (__DEV__) console.debug('cache avg rating failed', e); }
         return;
       }
 
@@ -240,7 +240,7 @@ const DashboardScreen: React.FC = () => {
       }
 
       const matched: any[] = [];
-      console.debug('fetchAverageRating:', { numericServiceIdsLength: numericServiceIds.length, profileIdsLength: profileIds.length, totalReviews: (allReviews || []).length });
+      if (__DEV__) console.debug('fetchAverageRating:', { numericServiceIdsLength: numericServiceIds.length, profileIdsLength: profileIds.length, totalReviews: (allReviews || []).length });
       for (const r of (allReviews || [])) {
         // Include doctor reviews for this user
         if (r.doctor_id && String(r.doctor_id) === String(user.id)) {
@@ -282,7 +282,7 @@ const DashboardScreen: React.FC = () => {
         const matchedAvg = Math.round((sum / matched.length) * 10) / 10;
         setAvgRating(matchedAvg);
         setReviewCount(matched.length);
-        try { await cacheAvgRating({ avgRating: matchedAvg, reviewCount: matched.length }); } catch (e) { console.debug('cache avg rating failed', e); }
+        try { await cacheAvgRating({ avgRating: matchedAvg, reviewCount: matched.length }); } catch (e) { if (__DEV__) console.debug('cache avg rating failed', e); }
         return;
       }
 
@@ -291,7 +291,7 @@ const DashboardScreen: React.FC = () => {
       // without risking bigint casting errors. Reset to defaults.
       setAvgRating(0);
       setReviewCount(0);
-      try { await cacheAvgRating({ avgRating: 0, reviewCount: 0 }); } catch (e) { console.debug('cache avg rating failed', e); }
+      try { await cacheAvgRating({ avgRating: 0, reviewCount: 0 }); } catch (e) { if (__DEV__) console.debug('cache avg rating failed', e); }
     } catch (error) {
       console.error('Error fetching average rating:', error);
     }
@@ -437,7 +437,7 @@ const DashboardScreen: React.FC = () => {
           setWeeklyAmount(Math.round(cached.weeklyAmount) || 0);
         }
       } catch (e) {
-        console.debug('Error loading cached earnings:', e);
+        if (__DEV__) console.debug('Error loading cached earnings:', e);
       }
 
       try {
@@ -447,7 +447,7 @@ const DashboardScreen: React.FC = () => {
           setReviewCount(cachedRating.reviewCount || 0);
         }
       } catch (e) {
-        console.debug('Error loading cached rating:', e);
+        if (__DEV__) console.debug('Error loading cached rating:', e);
       }
     })();
     // Ensure earnings/acceptance show immediately from cached summary
@@ -457,7 +457,7 @@ const DashboardScreen: React.FC = () => {
       setTodayCompletedCount(esInit.todayCompletedCount || 0);
       setAcceptancePct(esInit.acceptancePct || 0);
     } catch (e) {
-      console.debug('Could not initialize earnings from cache', e);
+      if (__DEV__) console.debug('Could not initialize earnings from cache', e);
     }
     // Fetch fresh bookings and ratings from database
     fetchProviderBookings();
@@ -523,7 +523,7 @@ const DashboardScreen: React.FC = () => {
           .eq('user_id', user.id);
 
         if (servicesError || !services || services.length === 0) {
-          console.log('No services found for provider, skipping realtime subscription');
+          if (__DEV__) console.log('No services found for provider, skipping realtime subscription');
           return;
         }
 
@@ -547,7 +547,7 @@ const DashboardScreen: React.FC = () => {
                 return;
               }
 
-              console.log('📡 New booking received via realtime:', newBooking);
+              if (__DEV__) console.log('📡 New booking received via realtime:', newBooking);
 
               try {
                 // Transform the new booking using the same function
@@ -589,7 +589,7 @@ const DashboardScreen: React.FC = () => {
             }
           )
           .subscribe((status) => {
-            console.log('📡 Realtime subscription status for new bookings:', status);
+            if (__DEV__) console.log('📡 Realtime subscription status for new bookings:', status);
           });
 
       } catch (error) {
@@ -1013,7 +1013,7 @@ const DashboardScreen: React.FC = () => {
               status === 'in_progress';
             // Explicitly exclude completed and cancelled
           });
-          console.log('✅ Active bookings count:', activeBookings.length);
+          if (__DEV__) console.log('✅ Active bookings count:', activeBookings.length);
 
           if (activeBookings.length === 0) {
             return (

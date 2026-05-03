@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../context/AuthContext'
 import { useVerification } from '../hooks/useVerification'
 import { useTheme } from '../context/ThemeContext'
-import { supabase } from '../lib/supabase'
+import { supabase, auth as supabaseAuth } from '../lib/supabase'
 import { api } from '../lib/api'
 
 interface ProfileData {
@@ -50,6 +50,7 @@ const ProfileScreen: React.FC = () => {
   const [showThemeModal, setShowThemeModal] = useState(false)
   const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark' | 'system'>(themeMode)
   const [isDoctor, setIsDoctor] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -255,7 +256,7 @@ const ProfileScreen: React.FC = () => {
         .from('profile-images')
         .getPublicUrl(filePath)
 
-      console.log('Upload successful, public URL:', urlData.publicUrl)
+      if (__DEV__) console.log('Upload successful, public URL:', urlData.publicUrl)
 
       // Update the correct table by user type
       const isDoctorUser = verification?.selected_sector === 'Doctor Consultation' || isDoctor
@@ -372,10 +373,10 @@ const ProfileScreen: React.FC = () => {
       }
 
       if (!result.canceled && result.assets[0]) {
-        console.log('Image selected:', result.assets[0].uri)
+        if (__DEV__) console.log('Image selected:', result.assets[0].uri)
         await uploadImage(result.assets[0].uri)
       } else {
-        console.log('Image selection canceled')
+        if (__DEV__) console.log('Image selection canceled')
       }
     } catch (error) {
       console.error('Error picking image:', error)
@@ -520,8 +521,44 @@ const ProfileScreen: React.FC = () => {
     )
   }
 
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true)
+            try {
+              const { error } = await supabaseAuth.deleteUserAccount()
+              if (error) {
+                console.error('Delete account error:', error)
+                Alert.alert('Error', 'Failed to delete account. Please try again.')
+              } else {
+                // Delete succeeded, sign out locally
+                await signOut()
+                ;(navigation as any).reset({
+                  index: 0,
+                  routes: [{ name: 'Login' }],
+                })
+              }
+            } catch (err) {
+              console.error('Delete account exception:', err)
+              Alert.alert('Error', 'An unexpected error occurred.')
+            } finally {
+              setDeletingAccount(false)
+            }
+          }
+        }
+      ]
+    )
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]} >
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border, paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           onPress={() => {
@@ -837,6 +874,22 @@ const ProfileScreen: React.FC = () => {
         <TouchableOpacity style={[styles.logoutButton, { backgroundColor: colors.card }]} onPress={handleSignOut}>
           <Ionicons name="log-out-outline" size={20} color="#dc3545" />
           <Text style={styles.logoutText}>Sign Out</Text>
+        </TouchableOpacity>
+
+        {/* Delete Account Button */}
+        <TouchableOpacity 
+          style={[styles.logoutButton, { backgroundColor: colors.card, marginBottom: 40, marginTop: -10 }]} 
+          onPress={handleDeleteAccount}
+          disabled={deletingAccount}
+        >
+          {deletingAccount ? (
+            <ActivityIndicator size="small" color="#dc3545" />
+          ) : (
+            <Ionicons name="trash-outline" size={20} color="#dc3545" />
+          )}
+          <Text style={styles.logoutText}>
+            {deletingAccount ? 'Deleting...' : 'Delete Account'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 

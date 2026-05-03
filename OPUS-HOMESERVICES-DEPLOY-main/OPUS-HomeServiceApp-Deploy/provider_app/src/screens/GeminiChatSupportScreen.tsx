@@ -30,7 +30,7 @@ type ChatMessage = {
 };
 
 type GeminiContent = {
-  role: 'user' | 'assistant';
+  role: 'user' | 'model';
   parts: { text: string }[];
 };
 
@@ -79,7 +79,8 @@ const GeminiChatSupportScreen = () => {
       .filter((message) => message.id !== 'welcome')
       .slice(-12)
       .map((message) => ({
-        role: message.role,
+        // Gemini API expects 'model' role for the assistant's responses
+        role: message.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: message.text }],
       }));
 

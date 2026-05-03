@@ -13,6 +13,8 @@ import SplashScreen from './src/components/SplashScreen';
 import { StatusBar, AppState } from 'react-native';
 import { registerRootComponent } from 'expo';
 import { analytics } from './src/services/analytics';
+import { usePushNotifications } from './src/hooks/usePushNotifications';
+import { profileAPI } from './src/lib/api';
 
 enableScreens();
 
@@ -24,6 +26,7 @@ const AppShell: React.FC = () => {
   const { refreshVerification, verification } = useVerification();
   const [isNavReady, setIsNavReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const { expoPushToken } = usePushNotifications();
 
   const navTheme = isDark
     ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: colors.background, card: colors.card } }
@@ -58,8 +61,15 @@ const AppShell: React.FC = () => {
           verification_status: verification.status,
         });
       }
+
+      // Update push token if available
+      if (expoPushToken?.data) {
+        profileAPI.updateProfile(user.id, { push_token: expoPushToken.data }).catch(err => {
+          console.warn('Failed to update push token', err);
+        });
+      }
     }
-  }, [user, verification]);
+  }, [user, verification, expoPushToken]);
 
   // Track app state changes
   useEffect(() => {

@@ -6,10 +6,10 @@ const SUPABASE_REFRESH_TOKEN_KEY = 'supabase_refresh_token'
 const ExpoSecureStoreAdapter = {
   getItem: async (key: string) => {
     try {
-      console.log(`[SupabaseStorage] getItem starting: ${key}`);
+      if (__DEV__) console.log(`[SupabaseStorage] getItem starting: ${key}`);
       const chunks = await SecureStore.getItemAsync(`${key}_chunks`);
       if (chunks) {
-        console.log(`[SupabaseStorage] Found ${chunks} chunks for: ${key}`);
+        if (__DEV__) console.log(`[SupabaseStorage] Found ${chunks} chunks for: ${key}`);
         let value = '';
         const numChunks = Number(chunks);
         if (isNaN(numChunks)) {
@@ -20,11 +20,11 @@ const ExpoSecureStoreAdapter = {
           const chunk = await SecureStore.getItemAsync(`${key}_chunk_${i}`);
           if (chunk) value += chunk;
         }
-        console.log(`[SupabaseStorage] Reconstructed value (${value.length} bytes) for: ${key}`);
+        if (__DEV__) console.log(`[SupabaseStorage] Reconstructed value (${value.length} bytes) for: ${key}`);
         return value;
       }
       const val = await SecureStore.getItemAsync(key);
-      console.log(`[SupabaseStorage] getItem finished: ${key} (found: ${!!val})`);
+      if (__DEV__) console.log(`[SupabaseStorage] getItem finished: ${key} (found: ${!!val})`);
       return val;
     } catch (error) {
       console.error(`[SupabaseStorage] getItem error for ${key}:`, error);
@@ -33,7 +33,7 @@ const ExpoSecureStoreAdapter = {
   },
   setItem: async (key: string, value: string) => {
     try {
-      console.log(`[SupabaseStorage] setItem starting: ${key} (${value.length} bytes)`);
+      if (__DEV__) console.log(`[SupabaseStorage] setItem starting: ${key} (${value.length} bytes)`);
       
       // Migration/Backup: Store refresh token separately if it's a session object
       try {
@@ -48,7 +48,7 @@ const ExpoSecureStoreAdapter = {
 
       if (value.length > 2048) {
         const chunks = Math.ceil(value.length / 2048);
-        console.log(`[SupabaseStorage] Chunking ${value.length} bytes into ${chunks} chunks for: ${key}`);
+        if (__DEV__) console.log(`[SupabaseStorage] Chunking ${value.length} bytes into ${chunks} chunks for: ${key}`);
         await SecureStore.setItemAsync(`${key}_chunks`, String(chunks));
         for (let i = 0; i < chunks; i++) {
           await SecureStore.setItemAsync(`${key}_chunk_${i}`, value.slice(i * 2048, (i + 1) * 2048));
@@ -58,14 +58,14 @@ const ExpoSecureStoreAdapter = {
         await SecureStore.deleteItemAsync(`${key}_chunks`);
         await SecureStore.setItemAsync(key, value);
       }
-      console.log(`[SupabaseStorage] setItem finished: ${key}`);
+      if (__DEV__) console.log(`[SupabaseStorage] setItem finished: ${key}`);
     } catch (error) {
       console.error(`[SupabaseStorage] setItem error for ${key}:`, error);
     }
   },
   removeItem: async (key: string) => {
     try {
-      console.log(`[SupabaseStorage] removeItem starting: ${key}`);
+      if (__DEV__) console.log(`[SupabaseStorage] removeItem starting: ${key}`);
       await SecureStore.deleteItemAsync(SUPABASE_REFRESH_TOKEN_KEY);
       
       const chunks = await SecureStore.getItemAsync(`${key}_chunks`);
@@ -79,7 +79,7 @@ const ExpoSecureStoreAdapter = {
         await SecureStore.deleteItemAsync(`${key}_chunks`);
       }
       await SecureStore.deleteItemAsync(key);
-      console.log(`[SupabaseStorage] removeItem finished: ${key}`);
+      if (__DEV__) console.log(`[SupabaseStorage] removeItem finished: ${key}`);
     } catch (error) {
       console.error(`[SupabaseStorage] removeItem error for ${key}:`, error);
     }
@@ -113,9 +113,9 @@ export interface Database {
   public: {
     Tables: {
       providers_profiles: {
-        Row: { id: string; email: string; full_name: string | null; avatar_url: string | null; phone: string | null; created_at: string; updated_at: string }
-        Insert: { id: string; email: string; full_name?: string | null; avatar_url?: string | null; phone?: string | null; created_at?: string; updated_at?: string }
-        Update: { id?: string; email?: string; full_name?: string | null; avatar_url?: string | null; phone?: string | null; created_at?: string; updated_at?: string }
+        Row: { id: string; email: string; full_name: string | null; avatar_url: string | null; phone: string | null; push_token: string | null; created_at: string; updated_at: string }
+        Insert: { id: string; email: string; full_name?: string | null; avatar_url?: string | null; phone?: string | null; push_token?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; email?: string; full_name?: string | null; avatar_url?: string | null; phone?: string | null; push_token?: string | null; created_at?: string; updated_at?: string }
       }
       providers_services: {
         Row: { id: number; user_id: string; service_name: string; service_type: string; description: string | null; status: string; submitted_at: string; updated_at: string }
@@ -272,6 +272,12 @@ export const auth = {
   },
   resetPassword: async (email: string) => {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email)
+    return { data, error }
+  },
+  deleteUserAccount: async () => {
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      method: 'POST'
+    })
     return { data, error }
   }
 }
