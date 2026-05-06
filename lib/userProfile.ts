@@ -71,6 +71,25 @@ export class UserProfileService {
     }
   }
 
+  static async deleteProfile(userId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error deleting profile:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting profile:', error);
+      return false;
+    }
+  }
+
   static async uploadAvatar(userId: string, file: File): Promise<string | null> {
     try {
       const fileExt = file.name.split('.').pop();

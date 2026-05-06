@@ -200,20 +200,15 @@ function RootLayoutContent() {
           <CartProvider>
             <Stack>
               <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-              <Stack.Screen name="subcategories/login" options={{ headerShown: false }} />
-              <Stack.Screen name="subcategories/otp" options={{ headerShown: false }} />
+              <Stack.Screen name="subcategories" options={{ headerShown: false }} />
               <Stack.Screen name="location/fetching" options={{ headerShown: false }} />
               <Stack.Screen name="location/select" options={{ headerShown: false }} />
               <Stack.Screen name="location/new" options={{ headerShown: false }} />
               <Stack.Screen name="location/confirm" options={{ headerShown: false }} />
               <Stack.Screen name="booking/confirmed" options={{ headerShown: false }} />
               <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="profile/auth-profile" options={{ headerShown: false }} />
-              <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="profile" options={{ headerShown: false }} />
-              <Stack.Screen name="realestate" options={{ headerShown: false }} />
-              <Stack.Screen name="subcategories" options={{ headerShown: false }} />
-              <Stack.Screen name="search" options={{ headerShown: false }} />
+              <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="payment" options={{ headerShown: false }} />
               <Stack.Screen name="ProfileScreen" options={{ headerShown: false }} />
               <Stack.Screen name="address-selection" options={{ headerShown: false }} />
@@ -233,7 +228,7 @@ function RootLayoutContent() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   return (
     <ErrorBoundary>
       <AppThemeProvider>
@@ -245,7 +240,7 @@ export default function RootLayout() {
       </AppThemeProvider>
     </ErrorBoundary>
   );
-}
+});
 
 const styles = StyleSheet.create({
   splashContainer: {

@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useNavigation } from "expo-router";
 
@@ -24,6 +24,24 @@ export default function AboutScreen() {
         <Text style={styles.text}>Version 1.0.0</Text>
         <Text style={[styles.text, { marginTop: 8 }]}>A marketplace for services including home, health, and automotive.
         </Text>
+
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => Linking.openURL("https://www.thefixit.in/privacypolicy")}
+        >
+          <Ionicons name="shield-checkmark-outline" size={20} color="#007AFF" />
+          <Text style={styles.linkText}>Privacy Policy</Text>
+          <Ionicons name="chevron-forward" size={18} color="#999" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => Linking.openURL("https://www.thefixit.in/terms-and-conditions")}
+        >
+          <Ionicons name="document-text-outline" size={20} color="#007AFF" />
+          <Text style={styles.linkText}>Terms and Conditions</Text>
+          <Ionicons name="chevron-forward" size={18} color="#999" />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -44,4 +62,19 @@ const styles = StyleSheet.create({
   body: { padding: 16 },
   title: { fontSize: 22, fontWeight: "800", marginBottom: 6 },
   text: { color: "#444" },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 20,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  linkText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#007AFF",
+    marginLeft: 10,
+    fontWeight: "500",
+  },
 });

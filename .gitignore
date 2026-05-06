@@ -43,3 +43,5 @@ eas.json
 *.tsbuildinfo
 
 app-example
+
+.env.local

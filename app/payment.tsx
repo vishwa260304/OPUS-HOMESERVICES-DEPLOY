@@ -17,7 +17,6 @@ import { useCart } from '../context/CartContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { updateBookingPayment, createDoctorAppointmentBooking, AppointmentData } from '../lib/appointmentService';
 import { useAnalytics } from '../context/AnalyticsContext';
-import RazorpayCheckout from 'react-native-razorpay';
 import Constants from 'expo-constants';
 
 const RAZORPAY_KEY_ID =
@@ -360,6 +359,18 @@ const PaymentScreen = () => {
 
     if (!razorpayKey) {
       Alert.alert('Online payment unavailable', 'Please choose pay after service for this booking.');
+      return;
+    }
+
+    // Lazy-load Razorpay to avoid crashing in Expo Go (no native modules)
+    let RazorpayCheckout: any;
+    try {
+      RazorpayCheckout = require('react-native-razorpay').default;
+    } catch {
+      Alert.alert(
+        'Online payment unavailable',
+        'Razorpay requires a development build. Please use "Pay after service" or create a dev client build.'
+      );
       return;
     }
 

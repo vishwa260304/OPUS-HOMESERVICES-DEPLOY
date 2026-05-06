@@ -8,18 +8,20 @@ export default {
     icon: "./assets/images/Fixit_logo.png",
     scheme: "fixit",
     userInterfaceStyle: "automatic",
-    newArchEnabled: false,
+    newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.ciel.fixit",
       supportsTablet: true,
-      buildNumber: "1",
+      buildNumber: "2",
       associatedDomains: ["applinks:fixit.ciel.ai"],
       infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription: "FIXIT uses your location to show nearby service providers.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "FIXIT uses your location to find services near you.",
         NSCameraUsageDescription: "FIXIT needs camera access for KYC document scanning and profile photos.",
         NSPhotoLibraryUsageDescription: "FIXIT accesses your photos to upload a profile picture.",
         NSPhotoLibraryAddUsageDescription: "FIXIT saves booking receipts and images to your library.",
+        MKDirectionsApplicationSupportedModes: ["MKDirectionsModeCar"],
         UIBackgroundModes: ["fetch", "remote-notification"],
         NSUserActivityTypes: ["NSUserActivityTypeBrowsingWeb"],
       },
@@ -77,6 +79,7 @@ export default {
     },
     plugins: [
       "expo-router",
+      "./plugins/withRoutingCoverage",
       [
         "expo-splash-screen",
         {
@@ -97,7 +100,14 @@ export default {
         },
       ],
       "expo-web-browser",
-      "@sentry/react-native",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "ciel-ai"
+        }
+      ],
       "expo-secure-store",
       [
         "expo-build-properties",
@@ -116,6 +126,8 @@ export default {
       EXPO_PUBLIC_RAZORPAY_KEY_ID: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID,
       EXPO_PUBLIC_MIXPANEL_TOKEN: process.env.EXPO_PUBLIC_MIXPANEL_TOKEN,
       EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+      EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       eas: {
         projectId: "b852e5b1-705f-4746-b2e9-777706e2bf69",
       },

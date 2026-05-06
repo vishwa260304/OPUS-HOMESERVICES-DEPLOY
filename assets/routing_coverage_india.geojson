@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [68.1766451354, 8.4077228005],
+          [97.4025614766, 8.4077228005],
+          [97.4025614766, 35.4940095078],
+          [68.1766451354, 35.4940095078],
+          [68.1766451354, 8.4077228005]
+        ]]
+      },
+      "properties": {
+        "name": "India",
+        "region": "South Asia",
+        "app": "FIXIT",
+        "bundle_id": "com.ciel.fixit"
+      }
+    }
+  ]
+}

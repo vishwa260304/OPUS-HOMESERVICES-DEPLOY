@@ -71,32 +71,66 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+import Constants from 'expo-constants';
+
+const getEnvVar = (name: string) => {
+  const value = process.env[name] || Constants.expoConfig?.extra?.[name];
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return (trimmed === 'undefined' || trimmed === 'null' || trimmed === '') ? undefined : trimmed;
+};
+
+const supabaseUrl = getEnvVar('EXPO_PUBLIC_SUPABASE_URL');
+const supabaseAnonKey = getEnvVar('EXPO_PUBLIC_SUPABASE_ANON_KEY');
 
 const isPlaceholderConfig = (value?: string) => {
   if (!value) {
     return true;
   }
-
   return /replace_with|your_|changeme|example/i.test(value);
 };
 
-if (isPlaceholderConfig(supabaseUrl) || isPlaceholderConfig(supabaseAnonKey)) {
-  throw new Error(
-    'Supabase is not configured correctly. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to real project values.'
-  );
+// Create a dummy client that throws helpful errors if used before configuration
+const createDummyClient = (errorMsg: string) => {
+  if (__DEV__) console.warn(`Supabase warning: ${errorMsg}`);
+  return new Proxy({}, {
+    get: (_, prop) => {
+      if (prop === 'auth') {
+        return new Proxy({}, {
+          get: () => () => { throw new Error(errorMsg); }
+        });
+      }
+      return () => { throw new Error(errorMsg); };
+    }
+  }) as any;
+};
+
+let supabaseClient;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  const msg = 'Supabase credentials missing. Check EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env file.';
+  supabaseClient = createDummyClient(msg);
+} else if (isPlaceholderConfig(supabaseUrl) || isPlaceholderConfig(supabaseAnonKey)) {
+  const msg = 'Supabase placeholder detected. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to real values.';
+  supabaseClient = createDummyClient(msg);
+} else {
+  try {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storage: ExpoSecureStoreAdapter as any,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    });
+  } catch (error: any) {
+    console.error('CRITICAL: Supabase initialization failed:', error);
+    supabaseClient = createDummyClient(`Supabase initialization error: ${error?.message || 'Unknown error'}`);
+  }
 }
 
-export const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
-  auth: {
-    storage: ExpoSecureStoreAdapter as any,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+export const supabase = supabaseClient;
+export const SUPABASE_PROJECT_URL = supabaseUrl || '';
+export const SUPABASE_STORAGE_URL = supabaseUrl ? `${supabaseUrl}/storage/v1/object/public` : '';
+export const SUPABASE_FUNCTIONS_URL = supabaseUrl ? `${supabaseUrl}/functions/v1` : '';
 
-export const SUPABASE_PROJECT_URL = supabaseUrl!;
-export const SUPABASE_STORAGE_URL = `${SUPABASE_PROJECT_URL}/storage/v1/object/public`;
-export const SUPABASE_FUNCTIONS_URL = `${SUPABASE_PROJECT_URL}/functions/v1`;

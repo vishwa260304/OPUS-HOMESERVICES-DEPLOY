@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AuthProfileScreen() {
-  const { user, profile, signOut, updateProfile, loading } = useAuth();
+  const { user, profile, signOut, updateProfile, deleteAccount, loading } = useAuth();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(profile?.full_name || '');
@@ -61,6 +61,43 @@ export default function AuthProfileScreen() {
           onPress: async () => {
             await signOut();
             router.replace('/subcategories/login');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      'Delete Account',
+      'This action is permanent and will delete all your data. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            // Second confirmation for Apple compliance
+            Alert.alert(
+              'Final Confirmation',
+              'Once deleted, your profile and order history cannot be recovered. Proceed?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete Permanently',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const result = await deleteAccount();
+                    if (result.success) {
+                      Alert.alert('Deleted', 'Your account has been deleted.');
+                      router.replace('/subcategories/login');
+                    } else {
+                      Alert.alert('Error', result.message);
+                    }
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -202,6 +239,13 @@ export default function AuthProfileScreen() {
             >
               <Text style={styles.buttonText}>Sign Out</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.deleteAccountButton]}
+              onPress={handleDeleteAccount}
+            >
+              <Text style={styles.buttonText}>Delete Account</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -334,6 +378,12 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     backgroundColor: '#EF4444',
+  },
+  deleteAccountButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    marginTop: 10,
   },
   buttonText: {
     color: '#fff',
