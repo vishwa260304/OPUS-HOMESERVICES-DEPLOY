@@ -1,0 +1,14 @@
+/provider_app/.npm-cache
+/provider_app/node_modules
+/customer_app/node_modules
+**/.npm-cache
+npm-debug.log*
+.DS_Store
+.env
+.expo
+.gradle
+.idea
+.vscode
+dist
+dist-ios
+build
